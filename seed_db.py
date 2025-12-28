@@ -12,9 +12,9 @@ def seed():
         print("🌱 Seeding Database...")
 
         # 2. Create Exercises
-        deadlift = Exercise(name="Deadlift", default_increment=5.0, unit="kg")
-        pullups = Exercise(name="Pull Ups", default_increment=1.25, unit="kg") # Weighted
-        rows = Exercise(name="Barbell Row", default_increment=2.5, unit="kg")
+        deadlift = Exercise(name="Deadlift", default_increment=5.0, unit="kg", is_custom=False)
+        pullups = Exercise(name="Pull Ups", default_increment=1.25, unit="kg", is_custom=False)
+        rows = Exercise(name="Barbell Row", default_increment=2.5, unit="kg", is_custom=False)
         
         session.add(deadlift)
         session.add(pullups)

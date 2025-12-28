@@ -10,3 +10,8 @@ class ExerciseCreate(SQLModel):
 class ExerciseRead(ExerciseCreate):
     id: uuid.UUID
     is_custom: bool = True
+
+class ExerciseUpdate(SQLModel):
+    name: Optional[str] = None
+    default_increment: Optional[float] = None
+    unit: Optional[str] = None

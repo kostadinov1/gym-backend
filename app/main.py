@@ -1,17 +1,31 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.db.database import create_db_and_tables
-from app.routers import exercises, workouts
+from app.routers import exercises, workouts, history
 # We import models here so SQLModel "knows" they exist before creating tables
 from app.db import models 
 
-app = FastAPI()
-
-@app.on_event("startup")
-def on_startup():
+# Define the lifespan manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- STARTUP LOGIC ---
+    # This runs before the app starts accepting requests
     create_db_and_tables()
+    print("✅ Database tables verified/created.")
+    
+    yield # The app runs while execution pauses here
+    
+    # --- SHUTDOWN LOGIC ---
+    # This runs when you press Ctrl+C
+    print("🛑 Shutting down Gym Tracker API...")
 
+# Initialize FastAPI with the lifespan
+app = FastAPI(lifespan=lifespan)
+
+# Register Routers
 app.include_router(exercises.router)
-app.include_router(workouts.router) # Add this line
+app.include_router(workouts.router)
+app.include_router(history.router)
 
 @app.get("/")
 def root():

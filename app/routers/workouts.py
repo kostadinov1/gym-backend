@@ -6,17 +6,36 @@ from pydantic import BaseModel
 
 from app.db.database import get_session
 from app.db.models import WorkoutRoutine, RoutineExercise, Exercise
-from app.schemas.workout import RoutineStart, ExercisePreview, SetTarget
+from app.schemas.workout import RoutineStart, ExercisePreview, SetTarget, WorkoutRoutineRead # Import the new Read model
 
 from app.db.models import WorkoutSession, SessionSet
 from app.schemas.session import SessionCreate, SessionRead
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
-@router.get("/routines", response_model=List[WorkoutRoutine])
+@router.get("/routines", response_model=List[WorkoutRoutineRead])
 def get_routines(session: Session = Depends(get_session)):
-    # Returns all available routines (e.g., Pull A, Pull B)
-    return session.exec(select(WorkoutRoutine)).all()
+    routines = session.exec(select(WorkoutRoutine)).all()
+    
+    response = []
+    for r in routines:
+        # Find the latest completed session for this routine
+        last_session = session.exec(
+            select(WorkoutSession)
+            .where(WorkoutSession.routine_id == r.id)
+            .where(WorkoutSession.status == "completed")
+            .order_by(WorkoutSession.end_time.desc())
+            .limit(1)
+        ).first()
+        
+        response.append(WorkoutRoutineRead(
+            id=r.id,
+            name=r.name,
+            day_of_week=r.day_of_week,
+            last_completed_at=last_session.end_time if last_session else None
+        ))
+        
+    return response
 
 @router.get("/start/{routine_id}", response_model=RoutineStart)
 def start_workout_session(routine_id: uuid.UUID, session: Session = Depends(get_session)):
