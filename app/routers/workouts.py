@@ -8,6 +8,9 @@ from app.db.database import get_session
 from app.db.models import WorkoutRoutine, RoutineExercise, Exercise
 from app.schemas.workout import RoutineStart, ExercisePreview, SetTarget
 
+from app.db.models import WorkoutSession, SessionSet
+from app.schemas.session import SessionCreate, SessionRead
+
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
 @router.get("/routines", response_model=List[WorkoutRoutine])
@@ -60,3 +63,37 @@ def start_workout_session(routine_id: uuid.UUID, session: Session = Depends(get_
         name=routine.name,
         exercises=response_exercises
     )
+
+@router.post("/finish", response_model=SessionRead)
+def finish_workout(session_data: SessionCreate, db: Session = Depends(get_session)):
+    """
+    Saves a completed workout session and all its sets.
+    """
+    # 1. Create the Session Record
+    workout_session = WorkoutSession(
+        routine_id=session_data.routine_id,
+        start_time=session_data.start_time,
+        end_time=session_data.end_time,
+        status="completed"
+    )
+    db.add(workout_session)
+    db.commit()
+    db.refresh(workout_session)
+    
+    # 2. Create the Set Records
+    for s in session_data.sets:
+        # Only save completed sets? Or all sets? 
+        # Usually we save all, but mark uncompleted ones as such.
+        db_set = SessionSet(
+            session_id=workout_session.id,
+            exercise_id=s.exercise_id,
+            set_number=s.set_number,
+            reps=s.reps,
+            weight=s.weight,
+            is_completed=s.is_completed
+        )
+        db.add(db_set)
+    
+    db.commit()
+    
+    return SessionRead(id=workout_session.id, status="completed")
