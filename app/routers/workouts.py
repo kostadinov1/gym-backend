@@ -6,27 +6,9 @@ from pydantic import BaseModel
 
 from app.db.database import get_session
 from app.db.models import WorkoutRoutine, RoutineExercise, Exercise
+from app.schemas.workout import RoutineStart, ExercisePreview, SetTarget
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
-
-# --- Response Models ---
-class SetTarget(BaseModel):
-    set_number: int
-    target_reps: int
-    target_weight: float
-
-class ExercisePreview(BaseModel):
-    exercise_id: uuid.UUID
-    name: str
-    sets: List[SetTarget]
-    increment_value: float
-
-class RoutineStart(BaseModel):
-    routine_id: uuid.UUID
-    name: str
-    exercises: List[ExercisePreview]
-
-# --- Endpoints ---
 
 @router.get("/routines", response_model=List[WorkoutRoutine])
 def get_routines(session: Session = Depends(get_session)):
