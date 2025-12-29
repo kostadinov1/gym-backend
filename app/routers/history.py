@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlmodel import Session, select
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 from app.db.database import get_session
@@ -47,3 +48,38 @@ def get_history(
         ))
         
     return history
+
+
+class UserStats(BaseModel):
+    total_workouts: int
+    workouts_this_month: int
+    last_workout_date: Optional[datetime] = None
+
+@router.get("/stats", response_model=UserStats)
+def get_stats(session: Session = Depends(get_session)):
+    now = datetime.utcnow()
+    start_of_month = datetime(now.year, now.month, 1)
+
+    # 1. Total Count
+    total = session.exec(select(func.count(WorkoutSession.id)).where(WorkoutSession.status == "completed")).one()
+    
+    # 2. This Month
+    month_count = session.exec(
+        select(func.count(WorkoutSession.id))
+        .where(WorkoutSession.status == "completed")
+        .where(WorkoutSession.start_time >= start_of_month)
+    ).one()
+    
+    # 3. Last Workout
+    last_workout = session.exec(
+        select(WorkoutSession)
+        .where(WorkoutSession.status == "completed")
+        .order_by(WorkoutSession.end_time.desc())
+        .limit(1)
+    ).first()
+
+    return UserStats(
+        total_workouts=total,
+        workouts_this_month=month_count,
+        last_workout_date=last_workout.end_time if last_workout else None
+    )
