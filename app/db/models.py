@@ -22,7 +22,12 @@ class WorkoutPlan(SQLModel, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
     description: Optional[str] = None
+    
+    # These 3 lines are CRITICAL for the new seed to work
     duration_weeks: int = 4
+    start_date: datetime 
+    end_date: datetime 
+    
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     

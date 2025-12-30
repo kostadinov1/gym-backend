@@ -1,6 +1,7 @@
 from sqlmodel import Session, select, SQLModel
 from app.db.database import engine, create_db_and_tables
 from app.db.models import Exercise, WorkoutPlan, WorkoutRoutine, RoutineExercise
+from datetime import datetime, timedelta
 
 def seed():
     # 1. Reset Tables (Re-create)
@@ -22,7 +23,16 @@ def seed():
         session.commit() # Commit to get IDs
 
         # 3. Create a Plan
-        plan = WorkoutPlan(name="Powerbuilder V1", duration_weeks=8)
+        start = datetime.utcnow()
+        duration = 8
+        end = start + timedelta(weeks=duration)
+
+        plan = WorkoutPlan(
+            name="Powerbuilder V1", 
+            duration_weeks=duration, 
+            start_date=start,
+            end_date=end # <--- ADD THIS
+        )
         session.add(plan)
         session.commit()
 
