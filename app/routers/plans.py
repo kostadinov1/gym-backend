@@ -7,6 +7,8 @@ import uuid
 from app.db.database import get_session
 from app.db.models import WorkoutPlan, WorkoutRoutine, RoutineExercise, WorkoutSession
 from app.schemas.plan import PlanCreate, PlanRead, RoutineCreate, RoutineRead, RoutineExerciseCreate
+from app.db.models import Exercise # Ensure Exercise is imported
+from app.schemas.plan import RoutineExerciseRead # Import the new schema
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
@@ -52,7 +54,7 @@ def create_plan(plan_data: PlanCreate, session: Session = Depends(get_session)):
 # --- 3. GET PLAN DETAILS (Deep Read) ---
 # Define response models locally or import them
 class RoutineWithExercises(RoutineRead):
-    exercises: List[RoutineExerciseCreate]
+    exercises: List[RoutineExerciseRead]
 
 class PlanDeepRead(PlanRead):
     routines: List[RoutineWithExercises]
@@ -73,9 +75,20 @@ def get_plan_details(plan_id: uuid.UUID, session: Session = Depends(get_session)
             .order_by(RoutineExercise.order_index)
         ).all()
         
+        exercises_list = []
+        for t in targets:
+            # Fetch the name for each target
+            # (Optimization note: A JOIN query is faster, but this is clearer for now)
+            ex_def = session.get(Exercise, t.exercise_id)
+            
+            exercises_list.append(RoutineExerciseRead(
+                **t.model_dump(),
+                name=ex_def.name if ex_def else "Unknown Exercise"
+            ))
+
         routine_obj = RoutineWithExercises(
-            **r.model_dump(),
-            exercises=[RoutineExerciseCreate(**t.model_dump()) for t in targets]
+            **r.model_dump(), 
+            exercises=exercises_list
         )
         routines_data.append(routine_obj)
         
@@ -83,7 +96,6 @@ def get_plan_details(plan_id: uuid.UUID, session: Session = Depends(get_session)
         **plan.model_dump(),
         routines=routines_data
     )
-
 # --- 4. DELETE PLAN ---
 @router.delete("/{plan_id}")
 def delete_plan(plan_id: uuid.UUID, session: Session = Depends(get_session)):

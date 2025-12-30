@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime
 import uuid
 
 # --- PLAN SCHEMAS ---
@@ -8,7 +8,7 @@ class PlanCreate(BaseModel):
     name: str
     description: Optional[str] = None
     start_date: datetime 
-    duration_weeks: int # 1 to 52
+    duration_weeks: int 
 
 class PlanRead(PlanCreate):
     id: uuid.UUID
@@ -20,16 +20,16 @@ class PlanUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
-# --- ROUTINE SCHEMAS (For creation within a plan) ---
+# --- ROUTINE SCHEMAS ---
 class RoutineCreate(BaseModel):
     name: str
-    day_of_week: Optional[int] = None # 0=Mon, 6=Sun
+    day_of_week: Optional[int] = None 
 
 class RoutineRead(RoutineCreate):
     id: uuid.UUID
     plan_id: uuid.UUID
 
-# --- ROUTINE EXERCISE SCHEMAS ---
+# --- EXERCISE TARGET SCHEMAS ---
 class RoutineExerciseCreate(BaseModel):
     exercise_id: uuid.UUID
     order_index: int
@@ -38,3 +38,8 @@ class RoutineExerciseCreate(BaseModel):
     target_weight: float
     rest_seconds: int = 90
     increment_value: float
+
+# NEW: This is the specific schema that includes the NAME
+class RoutineExerciseRead(RoutineExerciseCreate):
+    id: uuid.UUID
+    name: str
