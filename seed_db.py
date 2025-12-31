@@ -3,26 +3,39 @@ from app.db.database import engine, create_db_and_tables
 from app.db.models import Exercise, WorkoutPlan, WorkoutRoutine, RoutineExercise
 from datetime import datetime, timedelta
 
+from app.db.models import User # Import User
+from app.core.security import get_password_hash # Import hasher
+
 def seed():
-    # 1. Reset Tables (Re-create)
-    # WARNING: This deletes data. Only for Dev.
     SQLModel.metadata.drop_all(engine)
     create_db_and_tables()
 
     with Session(engine) as session:
         print("🌱 Seeding Database...")
 
+        # 1. Create a Default User (So you can login immediately)
+        default_user = User(
+            email="test@gym.com",
+            hashed_password=get_password_hash("123"),
+            full_name="Test User"
+        )
+        session.add(default_user)
+        session.commit() # Commit to get ID
+        
+        print(f"   Created User: {default_user.email} (Password: 123)")
+
         # 2. Create Exercises
-        deadlift = Exercise(name="Deadlift", default_increment=5.0, unit="kg", is_custom=False)
-        pullups = Exercise(name="Pull Ups", default_increment=1.25, unit="kg", is_custom=False)
-        rows = Exercise(name="Barbell Row", default_increment=2.5, unit="kg", is_custom=False)
+        # System exercises have user_id=None (Global)
+        deadlift = Exercise(name="Deadlift", default_increment=5.0, unit="kg", is_custom=False, user_id=None)
+        pullups = Exercise(name="Pull Ups", default_increment=1.25, unit="kg", is_custom=False, user_id=None)
+        rows = Exercise(name="Barbell Row", default_increment=2.5, unit="kg", is_custom=False, user_id=None)
         
         session.add(deadlift)
         session.add(pullups)
         session.add(rows)
-        session.commit() # Commit to get IDs
+        session.commit()
 
-        # 3. Create a Plan
+        # 3. Create a Plan (Owned by Default User)
         start = datetime.utcnow()
         duration = 8
         end = start + timedelta(weeks=duration)
@@ -31,7 +44,8 @@ def seed():
             name="Powerbuilder V1", 
             duration_weeks=duration, 
             start_date=start,
-            end_date=end # <--- ADD THIS
+            end_date=end,
+            user_id=default_user.id # <--- ASSIGN TO USER
         )
         session.add(plan)
         session.commit()

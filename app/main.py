@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.db.database import create_db_and_tables
-from app.routers import exercises, workouts, history, plans
+from app.routers import exercises, workouts, history, plans, auth
 # We import models here so SQLModel "knows" they exist before creating tables
 from app.db import models 
 
@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Register Routers
+app.include_router(auth.router)
 app.include_router(exercises.router)
 app.include_router(workouts.router)
 app.include_router(history.router)

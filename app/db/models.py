@@ -2,6 +2,18 @@ from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
 import uuid
+from pydantic import EmailStr 
+
+# --- 0. USERS (New) ---
+class User(SQLModel, table=True):
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    email: EmailStr = Field(unique=True, index=True)
+    hashed_password: str
+    full_name: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 
 # --- 1. CORE EXERCISE LIBRARY ---
 class ExerciseBase(SQLModel):
@@ -12,6 +24,8 @@ class ExerciseBase(SQLModel):
 class Exercise(ExerciseBase, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     is_custom: bool = True
+    user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="user.id") 
+
     
     # Relationships
     routine_exercises: List["RoutineExercise"] = Relationship(back_populates="exercise")
@@ -22,6 +36,8 @@ class WorkoutPlan(SQLModel, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
     description: Optional[str] = None
+    user_id: uuid.UUID = Field(foreign_key="user.id") # Plans MUST have an owner
+
     
     # These 3 lines are CRITICAL for the new seed to work
     duration_weeks: int = 4
@@ -82,6 +98,7 @@ class WorkoutSession(SQLModel, table=True):
     
     routine: WorkoutRoutine = Relationship(back_populates="sessions")
     sets: List["SessionSet"] = Relationship(back_populates="session")
+    user_id: uuid.UUID = Field(foreign_key="user.id") # Sessions MUST have an owner
 
 # --- 6. LOGGING: SETS ---
 class SessionSet(SQLModel, table=True):
