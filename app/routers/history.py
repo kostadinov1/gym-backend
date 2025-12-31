@@ -1,16 +1,14 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
 from sqlmodel import Session, select
+from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
+import uuid
+from pydantic import BaseModel
 
 from app.db.database import get_session
-from app.db.models import WorkoutSession, WorkoutRoutine
-from app.schemas.session import SessionRead
-
-# We need a custom schema for the list view (lighter than full details)
-from pydantic import BaseModel
-import uuid
+from app.db.models import WorkoutSession, WorkoutRoutine, User
+from app.core.security import get_current_user # <--- Auth
 
 class SessionSummary(BaseModel):
     id: uuid.UUID
@@ -18,18 +16,24 @@ class SessionSummary(BaseModel):
     date: datetime
     status: str
 
+class UserStats(BaseModel):
+    total_workouts: int
+    workouts_this_month: int
+    last_workout_date: Optional[datetime] = None
+
 router = APIRouter(prefix="/history", tags=["history"])
 
 @router.get("/", response_model=List[SessionSummary])
 def get_history(
     start_date: datetime,
     end_date: datetime,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user) # <--- Auth
 ):
-    # Select sessions joined with routine names
     statement = (
         select(WorkoutSession, WorkoutRoutine.name)
         .join(WorkoutRoutine)
+        .where(WorkoutSession.user_id == current_user.id) # <--- Filter
         .where(WorkoutSession.start_time >= start_date)
         .where(WorkoutSession.start_time <= end_date)
         .order_by(WorkoutSession.start_time.desc())
@@ -37,7 +41,6 @@ def get_history(
     
     results = session.exec(statement).all()
     
-    # Transform to schema
     history = []
     for workout, routine_name in results:
         history.append(SessionSummary(
@@ -46,33 +49,28 @@ def get_history(
             date=workout.start_time,
             status=workout.status
         ))
-        
     return history
 
-
-class UserStats(BaseModel):
-    total_workouts: int
-    workouts_this_month: int
-    last_workout_date: Optional[datetime] = None
-
 @router.get("/stats", response_model=UserStats)
-def get_stats(session: Session = Depends(get_session)):
+def get_stats(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user) # <--- Auth
+):
     now = datetime.utcnow()
     start_of_month = datetime(now.year, now.month, 1)
 
-    # 1. Total Count
-    total = session.exec(select(func.count(WorkoutSession.id)).where(WorkoutSession.status == "completed")).one()
+    # Base query for THIS user
+    base_query = select(func.count(WorkoutSession.id)).where(WorkoutSession.user_id == current_user.id).where(WorkoutSession.status == "completed")
+
+    total = session.exec(base_query).one()
     
-    # 2. This Month
     month_count = session.exec(
-        select(func.count(WorkoutSession.id))
-        .where(WorkoutSession.status == "completed")
-        .where(WorkoutSession.start_time >= start_of_month)
+        base_query.where(WorkoutSession.start_time >= start_of_month)
     ).one()
     
-    # 3. Last Workout
     last_workout = session.exec(
         select(WorkoutSession)
+        .where(WorkoutSession.user_id == current_user.id)
         .where(WorkoutSession.status == "completed")
         .order_by(WorkoutSession.end_time.desc())
         .limit(1)

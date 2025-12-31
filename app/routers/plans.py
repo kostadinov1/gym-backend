@@ -12,18 +12,35 @@ from app.schemas.plan import RoutineExerciseRead # Import the new schema
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
-# --- 1. LIST PLANS ---
-@router.get("/", response_model=List[PlanRead])
-def get_plans(session: Session = Depends(get_session)):
-    return session.exec(select(WorkoutPlan).where(WorkoutPlan.is_active == True)).all()
+from app.db.models import User
+from app.core.security import get_current_user
 
-# --- 2. CREATE PLAN ---
+# 1. LIST PLANS
+@router.get("/", response_model=List[PlanRead])
+def get_plans(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user) # <--- ADD THIS
+):
+    # Filter by user_id
+    return session.exec(
+        select(WorkoutPlan)
+        .where(WorkoutPlan.is_active == True)
+        .where(WorkoutPlan.user_id == current_user.id) # <--- FILTER
+    ).all()
+
+# 2. CREATE PLAN
 @router.post("/", response_model=PlanRead)
-def create_plan(plan_data: PlanCreate, session: Session = Depends(get_session)):
+def create_plan(
+    plan_data: PlanCreate, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user) # <--- ADD THIS
+):
     start = plan_data.start_date
     end = start + timedelta(weeks=plan_data.duration_weeks)
     
+    # Check overlap only for THIS user's plans
     statement = select(WorkoutPlan).where(
+        WorkoutPlan.user_id == current_user.id, # <--- FILTER
         WorkoutPlan.is_active == True,
         col(WorkoutPlan.start_date) < end,
         col(WorkoutPlan.end_date) > start
@@ -42,7 +59,8 @@ def create_plan(plan_data: PlanCreate, session: Session = Depends(get_session)):
         description=plan_data.description,
         duration_weeks=plan_data.duration_weeks,
         start_date=start,
-        end_date=end 
+        end_date=end,
+        user_id=current_user.id # <--- ASSIGN OWNER
     )
     
     session.add(db_plan)
