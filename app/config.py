@@ -38,5 +38,5 @@ class Settings(BaseSettings):
         env_file = os.path.join(BASE_DIR, ".env")
         env_file_encoding = 'utf-8'
         # 'fields' dict is removed in V2, we used Field(alias=...) above instead
-
+# start
 settings = Settings()
