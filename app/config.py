@@ -7,23 +7,34 @@ from pydantic_settings import BaseSettings
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
+    # Make these optional (None) so they don't crash if missing
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: str | None = None
+    POSTGRES_DB: str | None = None
+    POSTGRES_HOST: str | None = None
+    POSTGRES_PORT: int | None = None
     
+    # Add a direct URL field
+    DATABASE_URL_OVERRIDE: str | None = None # We will map this in .env as DATABASE_URL
+
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     @property
     def DATABASE_URL(self) -> str:
+        # If we set DATABASE_URL explicitly (Render), use it
+        if self.DATABASE_URL_OVERRIDE:
+            return self.DATABASE_URL_OVERRIDE
+        
+        # Otherwise build it from parts (Local)
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     class Config:
-        # Force it to look in the root folder
-        env_file = os.path.join(BASE_DIR, ".env")
-        env_file_encoding = 'utf-8'
+        env_file = ".env"
+        # Map the env var "DATABASE_URL" to the python var "DATABASE_URL_OVERRIDE"
+        fields = {
+            'DATABASE_URL_OVERRIDE': {'env': 'DATABASE_URL'}
+        }
 
 settings = Settings()
