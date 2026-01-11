@@ -24,6 +24,7 @@ class PlanUpdate(BaseModel):
 class RoutineCreate(BaseModel):
     name: str
     day_of_week: Optional[int] = None 
+    routine_type: str = "workout" # <--- ADD THIS (Default to workout)
 
 class RoutineRead(RoutineCreate):
     id: uuid.UUID

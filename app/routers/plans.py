@@ -181,3 +181,17 @@ def add_exercise_target(routine_id: uuid.UUID, target_data: RoutineExerciseCreat
     session.add(target)
     session.commit()
     return target
+
+
+@router.post("/{plan_id}/routines", response_model=RoutineRead)
+def add_routine(plan_id: uuid.UUID, routine_data: RoutineCreate, session: Session = Depends(get_session)):
+    routine = WorkoutRoutine(
+        plan_id=plan_id,
+        name=routine_data.name,
+        day_of_week=routine_data.day_of_week,
+        routine_type=routine_data.routine_type # <--- SAVE IT
+    )
+    session.add(routine)
+    session.commit()
+    session.refresh(routine)
+    return routine

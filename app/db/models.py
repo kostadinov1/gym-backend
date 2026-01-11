@@ -61,6 +61,8 @@ class WorkoutRoutine(SQLModel, table=True):
     # Scheduling Logic
     # 0=Monday, 6=Sunday. If null, it's floating.
     day_of_week: Optional[int] = None 
+        # NEW FIELD
+    routine_type: str = Field(default="workout") # Values: 'workout', 'rest'
     
     plan: WorkoutPlan = Relationship(back_populates="routines")
     exercises: List["RoutineExercise"] = Relationship(back_populates="routine")

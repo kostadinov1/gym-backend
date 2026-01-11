@@ -1,7 +1,7 @@
 from sqlmodel import Session, select, SQLModel
 from app.db.database import engine, create_db_and_tables
 from app.db.models import Exercise, WorkoutPlan, WorkoutRoutine, RoutineExercise
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone # <--- Add timezone
 
 from app.db.models import User # Import User
 from app.core.security import get_password_hash # Import hasher
@@ -36,7 +36,7 @@ def seed():
         session.commit()
 
         # 3. Create a Plan (Owned by Default User)
-        start = datetime.utcnow()
+        start = datetime.now(timezone.utc) 
         duration = 8
         end = start + timedelta(weeks=duration)
 
