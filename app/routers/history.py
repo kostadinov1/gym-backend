@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 from sqlalchemy import func
 from typing import List, Optional
@@ -9,6 +9,11 @@ from pydantic import BaseModel
 from app.db.database import get_session
 from app.db.models import WorkoutSession, WorkoutRoutine, User
 from app.core.security import get_current_user # <--- Auth
+
+
+from app.db.models import SessionSet, Exercise # Ensure these are imported
+from app.schemas.session import SessionDetailRead, SessionSetDetail # Import new schemas
+
 
 class SessionSummary(BaseModel):
     id: uuid.UUID
@@ -80,4 +85,60 @@ def get_stats(
         total_workouts=total,
         workouts_this_month=month_count,
         last_workout_date=last_workout.end_time if last_workout else None
+    )
+
+
+
+@router.get("/{session_id}", response_model=SessionDetailRead)
+def get_session_details(
+    session_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Get the Session
+    workout_session = session.get(WorkoutSession, session_id)
+    if not workout_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    # Security: Ensure it belongs to the user
+    if workout_session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # 2. Get the Routine Name
+    routine = session.get(WorkoutRoutine, workout_session.routine_id)
+    routine_name = routine.name if routine else "Unknown Routine"
+
+    # 3. Get the Sets (Joined with Exercise Name)
+    # We query SessionSet and join Exercise to get the name
+    sets_results = session.exec(
+        select(SessionSet, Exercise.name)
+        .join(Exercise, SessionSet.exercise_id == Exercise.id)
+        .where(SessionSet.session_id == session_id)
+        .order_by(SessionSet.exercise_id, SessionSet.set_number) 
+    ).all()
+
+    # 4. Transform to Schema
+    sets_data = []
+    for s, ex_name in sets_results:
+        sets_data.append(SessionSetDetail(
+            exercise_name=ex_name,
+            set_number=s.set_number,
+            reps=s.reps,
+            weight=s.weight,
+            is_completed=s.is_completed
+        ))
+
+    # Calculate Duration
+    duration = 0
+    if workout_session.end_time and workout_session.start_time:
+        diff = workout_session.end_time - workout_session.start_time
+        duration = int(diff.total_seconds() / 60)
+
+    return SessionDetailRead(
+        id=workout_session.id,
+        routine_name=routine_name,
+        start_time=workout_session.start_time,
+        end_time=workout_session.end_time or workout_session.start_time,
+        duration_minutes=duration,
+        sets=sets_data
     )

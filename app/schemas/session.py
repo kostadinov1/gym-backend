@@ -22,3 +22,19 @@ class SessionCreate(BaseModel):
 class SessionRead(BaseModel):
     id: uuid.UUID
     status: str
+
+# For reading detailed history
+class SessionSetDetail(BaseModel):
+    exercise_name: str
+    set_number: int
+    reps: int
+    weight: float
+    is_completed: bool
+
+class SessionDetailRead(BaseModel):
+    id: uuid.UUID
+    routine_name: str
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+    sets: List[SessionSetDetail]
