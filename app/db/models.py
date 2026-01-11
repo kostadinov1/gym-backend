@@ -16,10 +16,13 @@ class User(SQLModel, table=True):
 
 
 # --- 1. CORE EXERCISE LIBRARY ---
+    
 class ExerciseBase(SQLModel):
     name: str = Field(index=True)
-    default_increment: float = 2.5
+    default_increment: float = Field(default=0.0) # Change default to 0.0 or remove requirement
     unit: str = "kg"
+
+  
 
 class Exercise(ExerciseBase, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
