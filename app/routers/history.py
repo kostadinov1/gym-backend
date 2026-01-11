@@ -14,6 +14,8 @@ from app.core.security import get_current_user # <--- Auth
 from app.db.models import SessionSet, Exercise # Ensure these are imported
 from app.schemas.session import SessionDetailRead, SessionSetDetail # Import new schemas
 
+from app.schemas.session import SessionUpdate, SessionRead
+from app.db.models import SessionSet
 
 class SessionSummary(BaseModel):
     id: uuid.UUID
@@ -111,16 +113,16 @@ def get_session_details(
     # 3. Get the Sets (Joined with Exercise Name)
     # We query SessionSet and join Exercise to get the name
     sets_results = session.exec(
-        select(SessionSet, Exercise.name)
+        select(SessionSet, Exercise.name, Exercise.id) # Select ID too
         .join(Exercise, SessionSet.exercise_id == Exercise.id)
         .where(SessionSet.session_id == session_id)
         .order_by(SessionSet.exercise_id, SessionSet.set_number) 
     ).all()
 
-    # 4. Transform to Schema
     sets_data = []
-    for s, ex_name in sets_results:
+    for s, ex_name, ex_id in sets_results: # Unpack ID
         sets_data.append(SessionSetDetail(
+            exercise_id=ex_id, # Pass it
             exercise_name=ex_name,
             set_number=s.set_number,
             reps=s.reps,
@@ -142,3 +144,91 @@ def get_session_details(
         duration_minutes=duration,
         sets=sets_data
     )
+
+
+
+
+
+
+# 2. Add PUT (Edit Session)
+@router.put("/{session_id}", response_model=SessionRead)
+def update_session(
+    session_id: uuid.UUID,
+    update_data: SessionUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    workout_session = session.get(WorkoutSession, session_id)
+    if not workout_session or workout_session.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Session not found or authorized")
+
+    # Transaction: Replace Sets
+    try:
+        # Delete old
+        existing = session.exec(select(SessionSet).where(SessionSet.session_id == session_id)).all()
+        for x in existing: session.delete(x)
+        
+        # Add new
+        for s in update_data.sets:
+            new_set = SessionSet(
+                session_id=session_id,
+                exercise_id=s.exercise_id,
+                set_number=s.set_number,
+                reps=s.reps,
+                weight=s.weight,
+                is_completed=s.is_completed
+            )
+            session.add(new_set)
+            
+        session.commit()
+        return SessionRead(id=workout_session.id, status=workout_session.status)
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+# @router.put("/{session_id}", response_model=SessionRead)
+# def update_session(
+#     session_id: uuid.UUID,
+#     update_data: SessionUpdate,
+#     session: Session = Depends(get_session),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     # 1. Get the Session
+#     workout_session = session.get(WorkoutSession, session_id)
+#     if not workout_session:
+#         raise HTTPException(status_code=404, detail="Session not found")
+        
+#     if workout_session.user_id != current_user.id:
+#         raise HTTPException(status_code=403, detail="Not authorized")
+
+#     # 2. Transaction: Delete Old Sets -> Add New Sets
+#     # This ensures we don't have orphaned sets or logic errors with re-ordering
+#     try:
+#         # Delete existing sets for this session
+#         existing_sets = session.exec(
+#             select(SessionSet).where(SessionSet.session_id == session_id)
+#         ).all()
+#         for s in existing_sets:
+#             session.delete(s)
+            
+#         # Add new sets
+#         for s in update_data.sets:
+#             new_set = SessionSet(
+#                 session_id=session_id,
+#                 exercise_id=s.exercise_id,
+#                 set_number=s.set_number,
+#                 reps=s.reps,
+#                 weight=s.weight,
+#                 is_completed=s.is_completed
+#             )
+#             session.add(new_set)
+            
+#         session.commit()
+#         session.refresh(workout_session)
+        
+#         return SessionRead(id=workout_session.id, status=workout_session.status)
+        
+#     except Exception as e:
+#         session.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))

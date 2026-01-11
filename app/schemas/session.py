@@ -24,12 +24,16 @@ class SessionRead(BaseModel):
     status: str
 
 # For reading detailed history
+    
 class SessionSetDetail(BaseModel):
+    exercise_id: uuid.UUID 
     exercise_name: str
     set_number: int
     reps: int
     weight: float
     is_completed: bool
+
+  
 
 class SessionDetailRead(BaseModel):
     id: uuid.UUID
@@ -38,3 +42,7 @@ class SessionDetailRead(BaseModel):
     end_time: datetime
     duration_minutes: int
     sets: List[SessionSetDetail]
+
+class SessionUpdate(BaseModel):
+    # edit start/end time later
+    sets: List[SessionSetCreate]
